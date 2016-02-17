@@ -18,10 +18,10 @@ CFLAGS := -g -O2 -Wall -I$(PLATFORM_INC) -I$(LUA_INC) $(MYCFLAGS)
 # CFLAGS += -DUSE_PTHREAD_LOCK
 
 # link
-LDFLAGS := -llua53 -lplatform -lpthread -lws2_32 -L$(SKYNET_BUILD_PATH)
+LDFLAGS := -llua53 -lplatform -lepoll -lpthread -ldl -lpsapi -lws2_32 -L$(SKYNET_BUILD_PATH)
 SHARED := --shared
 EXPORT := -Wl,-E
-SHAREDLDFLAGS := -llua53 -lskynet -lplatform -lws2_32 -L$(SKYNET_BUILD_PATH)
+SHAREDLDFLAGS := -llua53 -lskynet -lplatform -lepoll -lws2_32 -L$(SKYNET_BUILD_PATH)
 
 # skynet
 CSERVICE = snlua logger gate harbor
@@ -32,6 +32,7 @@ LUA_CLIB = skynet socketdriver bson mongo md5 netpack \
 
 all : \
 	$(LUA_STATICLIB) \
+	$(SKYNET_BUILD_PATH)/epoll.dll \
    	$(SKYNET_BUILD_PATH)/platform.dll \
   	$(SKYNET_BUILD_PATH)/skynet.dll \
   	$(SKYNET_BUILD_PATH)/skynet.exe \
@@ -63,7 +64,10 @@ SKYNET_SRC = skynet_handle.c skynet_module.c skynet_mq.c \
   skynet_harbor.c skynet_env.c skynet_monitor.c skynet_socket.c socket_server.c \
   malloc_hook.c skynet_daemon.c skynet_log.c
 
-$(SKYNET_BUILD_PATH)/platform.dll : platform/platform.c platform/epoll.c platform/socket_poll.c platform/socket_extend.c
+$(SKYNET_BUILD_PATH)/epoll.dll : platform/epoll.cpp
+	g++ -O2 -Wall -I$(PLATFORM_INC) $(SHARED) $^ -lws2_32 -o $@
+
+$(SKYNET_BUILD_PATH)/platform.dll : platform/platform.c platform/socket_poll.c platform/socket_extend.c $(SKYNET_BUILD_PATH)/epoll.dll
 	$(CC) $(CFLAGS) $(SHARED) $^ -lws2_32 -lwsock32 -o $@ -DDONOT_USE_IO_EXTEND -DFD_SETSIZE=1024
 
 $(SKYNET_BUILD_PATH)/skynet.dll : $(foreach v, $(SKYNET_SRC), skynet-src/$(v)) | $(LUA_LIB) $(SKYNET_BUILD_PATH)/platform.dll
